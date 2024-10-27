@@ -1,61 +1,45 @@
 import pandas as pd
 
-# Definir os nomes das colunas
-colunas = [
-    "Data", "1ª Entrada", "1ª Saída", "2ª Entrada", "2ª Saída", "3ª Entrada",
-    "Crédito", "Débito", "H. intervalo", "Horas normais", "Horas extras fator 1 (50%)",
+# Carregar o arquivo Excel, pulando as duas primeiras linhas
+file_path = 'ponto.xlsx'
+df = pd.read_excel(file_path, skiprows=2, header=None)
+
+# Definir o cabeçalho conforme solicitado
+df.columns = [
+    "Data", "1ª Entrada", "1ª Saída", "2ª Entrada", "2ª Saída", "3ª Entrada", 
+    "Crédito", "Débito", "H. intervalo", "Horas normais", "Horas extras fator 1 (50%)", 
     "Horas extras fator 2 (100%)", "Adicional noturno", "Saldo", "Motivo/Observação"
 ]
 
-# Carregar o arquivo Excel
-file_path = r'C:\Users\anne_marcelo_bento\Documents\analise_ponto\ponto.xlsx'  # Substitua pelo caminho do seu arquivo
-df = pd.read_excel(file_path, header=None)
+# Lista para armazenar o nome do colaborador para cada linha
+colaborador_column = []
 
-# Definir as colunas usando os nomes fornecidos
-df.columns = colunas
+# Variável para guardar o nome atual do colaborador
+current_colaborador = None
 
-# Inicializar variáveis
-dados_tecnicos = []
-tecnico_atual = None
-dados_atual = []
-
-# Percorrer todas as linhas
+# Iterar pelas linhas do DataFrame para detectar e preencher o nome do colaborador
 for index, row in df.iterrows():
-    # Verificar se a linha contém "Colaborador"
-    if 'Colaborador' in row.astype(str).values:
-        if tecnico_atual and dados_atual:
-            # Salvar dados do técnico anterior
-            dados_tecnicos.append([tecnico_atual] + dados_atual)
-        # Capturar o nome do técnico
-        tecnico_atual = row.dropna().values[-1]  # Último valor não nulo é o nome do técnico
-        dados_atual = []  # Reiniciar dados para o novo técnico
-    
-    # Verificar se a linha contém "TOTAIS"
-    elif 'TOTAIS' in row.astype(str).values:
-        # Ignorar linhas de totais
-        continue
-    
-    else:
-        # Adicionar dados das outras linhas
-        dados_atual.append(row.dropna().values.tolist())
+    # Verificar se a linha contém "Colaborador" na coluna "Data"
+    if row["Data"] == "Colaborador":
+        # Definir o nome do colaborador a partir da coluna seguinte
+        current_colaborador = row[1]
+    # Adicionar o nome do colaborador atual à lista
+    colaborador_column.append(current_colaborador)
 
-# Adicionar o último técnico ao final da lista
-if tecnico_atual and dados_atual:
-    dados_tecnicos.append([tecnico_atual] + dados_atual)
+# Adicionar a coluna "Nome" com os dados dos colaboradores
+df.insert(0, "Nome", colaborador_column)
 
-# Converter os dados em um DataFrame
-linhas_formatadas = []
-for tecnico_dados in dados_tecnicos:
-    tecnico = tecnico_dados[0]
-    for dados in tecnico_dados[1:]:
-        linha = [tecnico] + dados
-        linhas_formatadas.append(linha)
+# Excluir as linhas que contêm a palavra "TOTAIS" na coluna "Data"
+df = df[df["Data"] != "TOTAIS"]
 
-# Criar DataFrame com os dados processados
-df_final = pd.DataFrame(linhas_formatadas, columns=["Técnico"] + colunas)
+# Excluir linhas onde a coluna "Data" tem o valor "Colaborador" (linhas de cabeçalho intermediárias)
+df = df[df["Data"] != "Colaborador"]
 
-# Salvar em um novo arquivo Excel
-output_path = 'tecnicos_dados_formatados.xlsx'
-df_final.to_excel(output_path, index=False)
+# Excluir todas as linhas onde a coluna "Data" contém a palavra "Data"
+df = df[~df["Data"].astype(str).str.contains("Data", case=False, na=False)]
 
-print(f"Dados organizados e salvos em: {output_path}")
+# Salvar o DataFrame modificado em um novo arquivo Excel
+output_path = 'colaboradores.xlsx'
+df.to_excel(output_path, index=False)
+
+print(f"Arquivo salvo em: {output_path}")
